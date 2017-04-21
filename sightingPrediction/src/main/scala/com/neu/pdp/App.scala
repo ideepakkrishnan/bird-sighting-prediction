@@ -33,8 +33,8 @@ object App {
 
     // Discard header row and invalid records
     if (elements(0).equals("SAMPLING_EVENT_ID") || // Check for title row
-        elements(speciesColumn).equals("?") || // Check invalid records
-        elements(speciesColumn).equals("X")) {
+        elements(speciesColumn).equals("?") ||
+        elements(speciesColumn).equals("X")) { // Check invalid records
       null
     } else {
 
@@ -153,38 +153,15 @@ object App {
     * calculates an average prediction using the results
     * from all these models
     * @param labeledPoint The features
-    * @param dtModel A DecisionTreeModel
-    * @param gbtModel A GradientBoostedTreesModel
-    * @param rfModel A RandomForestModel
-    * @param lrModel A LogisticRegressionModel
+    * @param gbtModel A RandomForestModel
     * @return The average prediction
     */
   def calculatePrediction(
           labeledPoint: LabeledPoint,
-          dtModel: DecisionTreeModel,
-          gbtModel: GradientBoostedTreesModel,
-          rfModel: RandomForestModel,
-          lrModel: LogisticRegressionModel): (Double, Double) = {
-
-    // Calculate the predictions from each model and store
-    // them as a list
-    val predictions: List[Double] =
-          List(
-            predictUsingDecisionTree(labeledPoint, dtModel),
-            predictUsingGradientBoostTrees(labeledPoint, gbtModel),
-            predictUsingRandomForest(labeledPoint, rfModel),
-            predictUsingLogisticRegression(labeledPoint, lrModel))
-
-    // Calculate the average prediction
-    var avgPrediction: Double = findAverage(predictions)
-
-    if (avgPrediction < 0.50)
-      avgPrediction = 0
-    else
-      avgPrediction = 1
+          gbtModel: GradientBoostedTreesModel): (Double, Double) = {
 
     // Return the prediction
-    (labeledPoint.label, avgPrediction)
+    (labeledPoint.label, predictUsingGradientBoostTrees(labeledPoint, gbtModel))
   }
 
   /**
@@ -210,8 +187,11 @@ object App {
       // Store the columns being considered for calculating the
       // prediction inside a HashSet so that it can be used in
       // the map phase to extract the required values
-      val arrColumns = Array[Int](2,3,5,6,12,13,14,16,speciesColumn,
-            955,960,962,963,964,965,966,967)
+      var arrColumns = Array[Int](2,3,5,6,12,13,14,16,speciesColumn,
+            955,960)
+      arrColumns = arrColumns ++ Array.range(963, 1015)
+      arrColumns = arrColumns ++ Array.range(1019, 1089)
+      arrColumns = arrColumns ++ Array.range(1090, 1102)
       val hsColumns: mutable.HashSet[Int] = new mutable.HashSet[Int]()
       arrColumns.foreach(value => hsColumns.add(value))
 
@@ -236,39 +216,35 @@ object App {
       categoricalFeaturesInfo += (10 -> 121) // OMERNIK_L3_ECOREGION : 1-121
 
       // Prepare random samples for all models
-      val randomTrainingData: RDD[(Int, LabeledPoint)] =
-            trainingData.map(line => (scala.util.Random.nextInt(4), line))
+      /*val randomTrainingData: RDD[(Int, LabeledPoint)] =
+            trainingData.map(line => (scala.util.Random.nextInt(4), line))*/
 
       // Define parameters for DecisionTree
       val numClasses = 2
-      val impurity = "gini"
+      /*val impurity = "gini"
       val maxDecisionTreeDepth = 9
-      val maxBins = 4000
+      val maxBins = 4000*/
 
-      val dtModel: DecisionTreeModel =
+      /*val dtModel: DecisionTreeModel =
             DecisionTree.trainClassifier(
-              randomTrainingData
-                .filter(x => x._1 != 0 || x._1 == null)
-                .map(x => x._2),  // Training data
+              trainingData,  // Training data
               numClasses, categoricalFeaturesInfo,
               impurity, maxDecisionTreeDepth, maxBins)
 
       // Define parameters for RandomForest
       val algoStrategy = "Classification"
-      val numTrees = 10
+      val numTrees = 100
       val subsetStrategy = "auto"  // Feature subset strategy -> Let the algorithm choose
 
       val rfModel: RandomForestModel =
             RandomForest.trainClassifier(
-              randomTrainingData
-                .filter(x => x._1 != 1 || x._1 == null)
-                .map(x => x._2),  // Training data
+              trainingData,  // Training data
               Strategy.defaultStrategy(algoStrategy),
-              numTrees, subsetStrategy, maxBins)
+              numTrees, subsetStrategy, maxBins)*/
 
       // Define parameters for GradientBoostedTrees
       val activeStrategy = "Classification"
-      val numBoostingIterations = 5
+      val numBoostingIterations = 50
       val maxBoostingDepth = 9
 
       var boostingStrategy = BoostingStrategy.defaultParams(activeStrategy)
@@ -278,28 +254,20 @@ object App {
 
       val gbtModel: GradientBoostedTreesModel =
             GradientBoostedTrees.train(
-              randomTrainingData
-                .filter(x => x._1 != 2 || x._1 == null)
-                .map(x => x._2),  // Training data
+              trainingData,  // Training data
               boostingStrategy)
 
-      val lrModel: LogisticRegressionModel =
+      /*val lrModel: LogisticRegressionModel =
             new LogisticRegressionWithLBFGS()
                   .setNumClasses(2)
-                  .run(
-                    randomTrainingData
-                      .filter(x => x._1 != 3 || x._1 == null)
-                      .map(x => x._2))
+                  .run(trainingData)*/
 
       // This is the validation step to calculate the accuracy of the validation data
       val ensembleResultRDD: RDD[(Double, Double)] =
             testData.map(
               point => calculatePrediction(
                           point,
-                          dtModel,
-                          gbtModel,
-                          rfModel,
-                          lrModel))
+                          gbtModel))
 
       val finalAccuracy = ensembleResultRDD
                               .filter(r => r._1 == r._2)
@@ -308,10 +276,10 @@ object App {
 
       println("Accuracy = " + finalAccuracy)
 
-      dtModel.save(sc, outputPath + "/DecisionTreeModel")
-      rfModel.save(sc, outputPath + "/RandomForestModel")
+      //dtModel.save(sc, outputPath + "/DecisionTreeModel")
+      //rfModel.save(sc, outputPath + "/RandomForestModel")
       gbtModel.save(sc, outputPath + "/GradientBoostModel")
-      lrModel.save(sc, outputPath + "/LogisticRegressionModel")
+      //lrModel.save(sc, outputPath + "/LogisticRegressionModel")
 
       sc.stop()
 
