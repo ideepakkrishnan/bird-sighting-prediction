@@ -43,7 +43,7 @@ object App {
       val features: Array[Double] = Array.ofDim[Double](columnIndexes.size)
 
       // Initialize the label for this record
-      if (elements(speciesColumn).toInt >= 0) {
+      if (elements(speciesColumn).toInt > 0) {
         features(0) = 1;
       } else {
         features(0) = 0;
@@ -230,40 +230,51 @@ object App {
       // each column can take. Though optional, this is
       // documented to churn out better performance.
       var categoricalFeaturesInfo: Map[Int, Int] = Map[Int, Int]()
-      categoricalFeaturesInfo += (2 -> 31)  // Days 1-31
-      categoricalFeaturesInfo += (3 -> 366)
-      categoricalFeaturesInfo += (9 -> 38)  // BCR 1-38
-      categoricalFeaturesInfo += (10 -> 121)  // OMERNIK_L3_ECOREGION 1-121
+      categoricalFeaturesInfo += (2 -> 13) // Months : 1 - 12
+      categoricalFeaturesInfo += (3 -> 367) // Days : 1-366
+      categoricalFeaturesInfo += (9 -> 38) // BCR : 1-38
+      categoricalFeaturesInfo += (10 -> 121) // OMERNIK_L3_ECOREGION : 1-121
 
       // Prepare random samples for all models
       val randomTrainingData: RDD[(Int, LabeledPoint)] =
             trainingData.map(line => (scala.util.Random.nextInt(4), line))
+
+      // Define parameters for DecisionTree
+      val numClasses = 2
+      val impurity = "gini"
+      val maxDecisionTreeDepth = 9
+      val maxBins = 4000
 
       val dtModel: DecisionTreeModel =
             DecisionTree.trainClassifier(
               randomTrainingData
                 .filter(x => x._1 != 0 || x._1 == null)
                 .map(x => x._2),  // Training data
-              2,  // Number of classes
-              categoricalFeaturesInfo,
-              "gini",  // Impurity
-              9,  // Max Depth
-              4000)  // Max bins
+              numClasses, categoricalFeaturesInfo,
+              impurity, maxDecisionTreeDepth, maxBins)
+
+      // Define parameters for RandomForest
+      val algoStrategy = "Classification"
+      val numTrees = 10
+      val subsetStrategy = "auto"  // Feature subset strategy -> Let the algorithm choose
 
       val rfModel: RandomForestModel =
             RandomForest.trainClassifier(
               randomTrainingData
                 .filter(x => x._1 != 1 || x._1 == null)
                 .map(x => x._2),  // Training data
-              Strategy.defaultStrategy("Classification"),
-              10,  // Number of trees
-              "auto",  // Feature subset strategy -> Let the algorithm choose
-              4000)  // Max bins
+              Strategy.defaultStrategy(algoStrategy),
+              numTrees, subsetStrategy, maxBins)
 
-      var boostingStrategy = BoostingStrategy.defaultParams("Classification")
-      boostingStrategy.setNumIterations(5)
-      boostingStrategy.treeStrategy.setNumClasses(2)
-      boostingStrategy.treeStrategy.setMaxDepth(9)
+      // Define parameters for GradientBoostedTrees
+      val activeStrategy = "Classification"
+      val numBoostingIterations = 5
+      val maxBoostingDepth = 9
+
+      var boostingStrategy = BoostingStrategy.defaultParams(activeStrategy)
+      boostingStrategy.setNumIterations(numBoostingIterations)
+      boostingStrategy.treeStrategy.setNumClasses(numClasses)
+      boostingStrategy.treeStrategy.setMaxDepth(maxBoostingDepth)
 
       val gbtModel: GradientBoostedTreesModel =
             GradientBoostedTrees.train(
@@ -297,10 +308,10 @@ object App {
 
       println("Accuracy = " + finalAccuracy)
 
-      dtModel.save(sc, args(1) + "/DecisionTreeModel")
-      rfModel.save(sc, args(1) + "/RandomForestModel")
-      gbtModel.save(sc, args(1) + "/GradientBoostModel")
-      lrModel.save(sc, args(1) + "/LogisticRegressionModel")
+      dtModel.save(sc, outputPath + "/DecisionTreeModel")
+      rfModel.save(sc, outputPath + "/RandomForestModel")
+      gbtModel.save(sc, outputPath + "/GradientBoostModel")
+      lrModel.save(sc, outputPath + "/LogisticRegressionModel")
 
       sc.stop()
 

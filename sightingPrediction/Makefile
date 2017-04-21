@@ -16,7 +16,7 @@ aws.subnet.id=subnet-b6f4c5ff
 aws.input=input
 aws.output=output
 aws.log.dir=logs
-aws.num.nodes=10
+aws.num.nodes=5
 aws.instance.type=m4.large
 # Species options
 species.column = 26
@@ -44,12 +44,12 @@ delete-output-aws:
 
 # Upload application to S3 bucket.
 upload-app-aws:
-#	aws s3 cp ${jar.path} s3://${aws.bucket.name}
+	aws s3 cp ${jar.path} s3://${aws.bucket.name}
 
 # Main EMR launch.
 cloud: jar upload-input-aws upload-app-aws delete-output-aws
 	aws emr create-cluster \
-		--name "Spark Page Rank Cluster" \
+		--name "Sighting Prediction Cluster" \
 		--release-label ${aws.emr.release} \
 		--instance-groups '[{"InstanceCount":${aws.num.nodes},"InstanceGroupType":"CORE","InstanceType":"${aws.instance.type}"},{"InstanceCount":1,"InstanceGroupType":"MASTER","InstanceType":"${aws.instance.type}"}]' \
 	    --applications Name=Spark \
