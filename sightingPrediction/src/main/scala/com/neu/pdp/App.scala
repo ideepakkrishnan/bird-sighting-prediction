@@ -148,6 +148,18 @@ object App {
     sum
   }
 
+  def appendLRPrediction(
+         labeledPoint: LabeledPoint,
+         lrModel: LogisticRegressionModel): LabeledPoint = {
+
+    // Return the prediction
+    LabeledPoint(
+      labeledPoint.label,
+      Vectors.dense(
+        labeledPoint.features.toArray :+
+          predictUsingLogisticRegression(labeledPoint, lrModel)))
+  }
+
   /**
     * Performs predictions using the specified models and
     * calculates an average prediction using the results
@@ -200,10 +212,7 @@ object App {
             .map(line => convertToLabeledPoint(line, hsColumns, speciesColumn))
             .filter(x => x != null).persist()
 
-      // Split the RDD into training and validation data
-      val splits: Array[RDD[LabeledPoint]] = extractedData.randomSplit(Array(0.8, 0.2))
-      val trainingData: RDD[LabeledPoint] = splits(0)
-      val testData: RDD[LabeledPoint] = splits(1)
+
 
       // Initialize categorical fields for DecisionTree.
       // This specifies the number of unique values that
@@ -238,14 +247,30 @@ object App {
 
       val rfModel: RandomForestModel =
             RandomForest.trainClassifier(
-              trainingData,  // Training data
+              extractedData,  // Training data
               Strategy.defaultStrategy(algoStrategy),
               numTrees, subsetStrategy, maxBins)*/
+
+      val lrModel: LogisticRegressionModel =
+            new LogisticRegressionWithLBFGS()
+                  .setNumClasses(2)
+                  .run(extractedData)
+
+      val lrProcessedData: RDD[LabeledPoint] =
+            extractedData.map(
+              record => appendLRPrediction(
+                            record,
+                            lrModel))
+
+      // Split the RDD into training and validation data
+      val splits: Array[RDD[LabeledPoint]] = lrProcessedData.randomSplit(Array(0.8, 0.2))
+      val trainingData: RDD[LabeledPoint] = splits(0)
+      val testData: RDD[LabeledPoint] = splits(1)
 
       // Define parameters for GradientBoostedTrees
       val activeStrategy = "Classification"
       val numBoostingIterations = 50
-      val maxBoostingDepth = 9
+      val maxBoostingDepth = 10
 
       var boostingStrategy = BoostingStrategy.defaultParams(activeStrategy)
       boostingStrategy.setNumIterations(numBoostingIterations)
@@ -256,11 +281,6 @@ object App {
             GradientBoostedTrees.train(
               trainingData,  // Training data
               boostingStrategy)
-
-      /*val lrModel: LogisticRegressionModel =
-            new LogisticRegressionWithLBFGS()
-                  .setNumClasses(2)
-                  .run(trainingData)*/
 
       // This is the validation step to calculate the accuracy of the validation data
       val ensembleResultRDD: RDD[(Double, Double)] =
