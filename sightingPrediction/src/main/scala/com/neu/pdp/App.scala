@@ -200,7 +200,7 @@ object App {
       // prediction inside a HashSet so that it can be used in
       // the map phase to extract the required values
       var arrColumns = Array[Int](2,3,5,6,12,13,14,16,speciesColumn,
-            955,960)
+            955,956,957,958,959,960,962)
       arrColumns = arrColumns ++ Array.range(963, 1015)
       arrColumns = arrColumns ++ Array.range(1019, 1089)
       arrColumns = arrColumns ++ Array.range(1090, 1102)
@@ -212,8 +212,6 @@ object App {
             .map(line => convertToLabeledPoint(line, hsColumns, speciesColumn))
             .filter(x => x != null).persist()
 
-
-
       // Initialize categorical fields for DecisionTree.
       // This specifies the number of unique values that
       // each column can take. Though optional, this is
@@ -221,8 +219,8 @@ object App {
       var categoricalFeaturesInfo: Map[Int, Int] = Map[Int, Int]()
       categoricalFeaturesInfo += (2 -> 13) // Months : 1 - 12
       categoricalFeaturesInfo += (3 -> 367) // Days : 1-366
-      categoricalFeaturesInfo += (9 -> 38) // BCR : 1-38
-      categoricalFeaturesInfo += (10 -> 121) // OMERNIK_L3_ECOREGION : 1-121
+      categoricalFeaturesInfo += (14 -> 38) // BCR : 1-38
+      categoricalFeaturesInfo += (15 -> 121) // OMERNIK_L3_ECOREGION : 1-121
 
       // Prepare random samples for all models
       /*val randomTrainingData: RDD[(Int, LabeledPoint)] =
@@ -269,7 +267,7 @@ object App {
 
       // Define parameters for GradientBoostedTrees
       val activeStrategy = "Classification"
-      val numBoostingIterations = 50
+      val numBoostingIterations = 100
       val maxBoostingDepth = 10
 
       var boostingStrategy = BoostingStrategy.defaultParams(activeStrategy)
