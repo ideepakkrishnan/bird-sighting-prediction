@@ -3,9 +3,9 @@ package com.neu.pdp
 import org.apache.spark.mllib.classification.{LogisticRegressionModel, LogisticRegressionWithLBFGS}
 import org.apache.spark.mllib.linalg.Vectors
 import org.apache.spark.mllib.regression.LabeledPoint
-import org.apache.spark.mllib.tree.model.{DecisionTreeModel, GradientBoostedTreesModel, RandomForestModel}
-import org.apache.spark.mllib.tree.{DecisionTree, GradientBoostedTrees, RandomForest}
-import org.apache.spark.mllib.tree.configuration.{BoostingStrategy, Strategy}
+import org.apache.spark.mllib.tree.model.GradientBoostedTreesModel
+import org.apache.spark.mllib.tree.GradientBoostedTrees
+import org.apache.spark.mllib.tree.configuration.BoostingStrategy
 import org.apache.spark.rdd.RDD
 import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
@@ -27,7 +27,7 @@ object App {
   def convertToLabeledPoint(
          line: String,
          columnIndexes: mutable.HashSet[Int],
-         speciesColumn: Int) = {
+         speciesColumn: Int) : LabeledPoint = {
 
     val elements: Array[String] = line.split(",")
 
@@ -44,9 +44,9 @@ object App {
 
       // Initialize the label for this record
       if (elements(speciesColumn).toInt > 0) {
-        features(0) = 1;
+        features(0) = 1
       } else {
-        features(0) = 0;
+        features(0) = 0
       }
 
       var currColumnIndex: Int = 0
@@ -81,19 +81,6 @@ object App {
 
   /**
     * Predict the outcome using the specified
-    * DecisionTreeModel
-    * @param labeledPoint The features
-    * @param dtModel The specified model
-    * @return The prediction
-    */
-  def predictUsingDecisionTree(
-          labeledPoint: LabeledPoint,
-          dtModel: DecisionTreeModel) : Double = {
-    dtModel.predict(labeledPoint.features)
-  }
-
-  /**
-    * Predict the outcome using the specified
     * GradientBoostedTreesModel
     * @param labeledPoint The features
     * @param gbtModel The specified model
@@ -103,19 +90,6 @@ object App {
          labeledPoint: LabeledPoint,
          gbtModel: GradientBoostedTreesModel) : Double = {
     gbtModel.predict(labeledPoint.features)
-  }
-
-  /**
-    * Predict the outcome using the specified
-    * RandomForestModel
-    * @param labeledPoint The features
-    * @param rfModel The specified model
-    * @return The prediction
-    */
-  def predictUsingRandomForest(
-          labeledPoint: LabeledPoint,
-          rfModel: RandomForestModel) : Double = {
-    rfModel.predict(labeledPoint.features)
   }
 
   /**
@@ -148,6 +122,14 @@ object App {
     sum
   }
 
+  /**
+    * Predicts the outcome for the record passed
+    * in as argument and appends it to the features
+    * of it's LabeledPoint
+    * @param labeledPoint The record
+    * @param lrModel The model to be used
+    * @return The updated LabeledPoint
+    */
   def appendLRPrediction(
          labeledPoint: LabeledPoint,
          lrModel: LogisticRegressionModel): LabeledPoint = {
@@ -204,6 +186,9 @@ object App {
       arrColumns = arrColumns ++ Array.range(963, 1015)
       arrColumns = arrColumns ++ Array.range(1019, 1089)
       arrColumns = arrColumns ++ Array.range(1090, 1102)
+
+      // Generate a hashset out of the columns to make sure
+      // there are no duplicates
       val hsColumns: mutable.HashSet[Int] = new mutable.HashSet[Int]()
       arrColumns.foreach(value => hsColumns.add(value))
 
@@ -222,38 +207,19 @@ object App {
       categoricalFeaturesInfo += (14 -> 38) // BCR : 1-38
       categoricalFeaturesInfo += (15 -> 121) // OMERNIK_L3_ECOREGION : 1-121
 
-      // Prepare random samples for all models
-      /*val randomTrainingData: RDD[(Int, LabeledPoint)] =
-            trainingData.map(line => (scala.util.Random.nextInt(4), line))*/
-
       // Define parameters for DecisionTree
       val numClasses = 2
-      /*val impurity = "gini"
-      val maxDecisionTreeDepth = 9
-      val maxBins = 4000*/
 
-      /*val dtModel: DecisionTreeModel =
-            DecisionTree.trainClassifier(
-              trainingData,  // Training data
-              numClasses, categoricalFeaturesInfo,
-              impurity, maxDecisionTreeDepth, maxBins)
-
-      // Define parameters for RandomForest
-      val algoStrategy = "Classification"
-      val numTrees = 100
-      val subsetStrategy = "auto"  // Feature subset strategy -> Let the algorithm choose
-
-      val rfModel: RandomForestModel =
-            RandomForest.trainClassifier(
-              extractedData,  // Training data
-              Strategy.defaultStrategy(algoStrategy),
-              numTrees, subsetStrategy, maxBins)*/
-
+      // Initialize the Logistic Regression model
       val lrModel: LogisticRegressionModel =
             new LogisticRegressionWithLBFGS()
                   .setNumClasses(2)
                   .run(extractedData)
 
+      // Perform the prediction for each record using the
+      // above model and append it to each record. This
+      // step is done as a step to boost the accuracy while
+      // running gradient boosted model
       val lrProcessedData: RDD[LabeledPoint] =
             extractedData.map(
               record => appendLRPrediction(
@@ -261,7 +227,8 @@ object App {
                             lrModel))
 
       // Split the RDD into training and validation data
-      val splits: Array[RDD[LabeledPoint]] = lrProcessedData.randomSplit(Array(0.8, 0.2))
+      val splits: Array[RDD[LabeledPoint]] =
+            lrProcessedData.randomSplit(Array(0.8, 0.2))
       val trainingData: RDD[LabeledPoint] = splits(0)
       val testData: RDD[LabeledPoint] = splits(1)
 
@@ -270,39 +237,48 @@ object App {
       val numBoostingIterations = 100
       val maxBoostingDepth = 10
 
-      var boostingStrategy = BoostingStrategy.defaultParams(activeStrategy)
+      // Initialize the boosting strategy for gradient
+      // boosted trees model
+      val boostingStrategy = BoostingStrategy.defaultParams(activeStrategy)
       boostingStrategy.setNumIterations(numBoostingIterations)
       boostingStrategy.treeStrategy.setNumClasses(numClasses)
       boostingStrategy.treeStrategy.setMaxDepth(maxBoostingDepth)
 
+      // Initialize the gradient boosted trees model
       val gbtModel: GradientBoostedTreesModel =
             GradientBoostedTrees.train(
               trainingData,  // Training data
               boostingStrategy)
 
-      // This is the validation step to calculate the accuracy of the validation data
-      val ensembleResultRDD: RDD[(Double, Double)] =
+      // Generate the final predictions using gradient
+      // boosted trees model
+      val gbtResultRDD: RDD[(Double, Double)] =
             testData.map(
               point => calculatePrediction(
                           point,
                           gbtModel))
 
-      val finalAccuracy = ensembleResultRDD
+      // Calculate the accuracy of our predictions
+      // from gradient boosted trees model and write
+      // it to sysout
+      val finalAccuracy = gbtResultRDD
                               .filter(r => r._1 == r._2)
                               .count
                               .toDouble / testData.count()
 
       println("Accuracy = " + finalAccuracy)
 
-      //dtModel.save(sc, outputPath + "/DecisionTreeModel")
-      //rfModel.save(sc, outputPath + "/RandomForestModel")
+      // Save the models for later use
+      lrModel.save(sc, outputPath + "/LogisticRegressionModel")
       gbtModel.save(sc, outputPath + "/GradientBoostModel")
-      //lrModel.save(sc, outputPath + "/LogisticRegressionModel")
 
       sc.stop()
 
     } else {
-      println("Invalid run time arguments")
+      println(
+        "Invalid run time arguments. Please specify the " +
+        "following arguments: input folder, output folder, " +
+        "species column.")
     }
   }
 
