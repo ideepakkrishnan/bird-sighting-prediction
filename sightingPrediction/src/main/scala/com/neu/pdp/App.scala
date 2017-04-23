@@ -82,27 +82,27 @@ object App {
   /**
     * Predict the outcome using the specified
     * GradientBoostedTreesModel
-    * @param labeledPoint The features
+    * @param features The features
     * @param gbtModel The specified model
     * @return The prediction
     */
   def predictUsingGradientBoostTrees(
-         labeledPoint: LabeledPoint,
+         features: org.apache.spark.mllib.linalg.Vector,
          gbtModel: GradientBoostedTreesModel) : Double = {
-    gbtModel.predict(labeledPoint.features)
+    gbtModel.predict(features)
   }
 
   /**
     * Predict the outcome using the specified
     * LogisticRegressionModel
-    * @param labeledPoint The features
+    * @param features The features
     * @param lrModel The specified model
     * @return The prediction
     */
   def predictUsingLogisticRegression(
-          labeledPoint: LabeledPoint,
+          features: org.apache.spark.mllib.linalg.Vector,
           lrModel: LogisticRegressionModel) : Double = {
-    lrModel.predict(labeledPoint.features)
+    lrModel.predict(features)
   }
 
   /**
@@ -139,7 +139,8 @@ object App {
       labeledPoint.label,
       Vectors.dense(
         labeledPoint.features.toArray :+
-          predictUsingLogisticRegression(labeledPoint, lrModel)))
+          predictUsingLogisticRegression(
+            labeledPoint.features, lrModel)))
   }
 
   /**
@@ -155,7 +156,9 @@ object App {
           gbtModel: GradientBoostedTreesModel): (Double, Double) = {
 
     // Return the prediction
-    (labeledPoint.label, predictUsingGradientBoostTrees(labeledPoint, gbtModel))
+    (labeledPoint.label,
+      predictUsingGradientBoostTrees(
+        labeledPoint.features, gbtModel))
   }
 
   /**
@@ -234,8 +237,8 @@ object App {
 
       // Define parameters for GradientBoostedTrees
       val activeStrategy = "Classification"
-      val numBoostingIterations = 100
-      val maxBoostingDepth = 10
+      val numBoostingIterations = 120
+      val maxBoostingDepth = 12
 
       // Initialize the boosting strategy for gradient
       // boosted trees model

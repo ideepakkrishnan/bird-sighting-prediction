@@ -16,13 +16,13 @@ object App {
 
   /**
     * Parses a string and extracts the necessary features into a
-    * labelled point which can be used for further computations
+    * tuple which can be used for further computations
     * @param line The line of input to be processed
     * @param columnIndexes The columns which are being considered
     *                      for computation
-    * @return Extracted features in the form of a LabeledPoint
+    * @return Extracted features in the form of a Tuple
     */
-  def convertToLabeledPoint(
+  def convertToTuple(
          line: String,
          columnIndexes: mutable.HashSet[Int],
          speciesColumn: Int) = {
@@ -177,7 +177,7 @@ object App {
 
       // RDD storing extracted features as LabeledPoint-s
       val extractedData: RDD[(String, org.apache.spark.mllib.linalg.Vector)] = inputRDD
-            .map(line => convertToLabeledPoint(line, hsColumns, speciesColumn))
+            .map(line => convertToTuple(line, hsColumns, speciesColumn))
             .filter(x => x != null).persist()
 
       // Perform the prediction for each record using the
@@ -198,7 +198,8 @@ object App {
                               point,
                               gbtModel))
 
-      gbtResultRDD.saveAsTextFile(outputPath)
+      gbtResultRDD.map(line => {line._1 + "," + line._2})
+                  .saveAsTextFile(outputPath)
     }
   }
 
