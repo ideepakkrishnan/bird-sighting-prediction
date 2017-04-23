@@ -101,7 +101,7 @@ object App {
     * @param lrModel The model to be used
     * @return The updated LabeledPoint
     */
-  def appendLRPrediction(
+  def appendLRPredictionToUnlabeledRecord(
           record: (String, org.apache.spark.mllib.linalg.Vector),
           lrModel: LogisticRegressionModel) = {
 
@@ -120,7 +120,7 @@ object App {
     * @param gbtModel A RandomForestModel
     * @return The average prediction
     */
-  def calculatePrediction(
+  def calculatePredictionForUnlabeledRecord(
            record: (String, org.apache.spark.mllib.linalg.Vector),
            gbtModel: GradientBoostedTreesModel): (String, Double) = {
 
@@ -186,7 +186,7 @@ object App {
       // running gradient boosted model
       val lrProcessedData: RDD[(String, org.apache.spark.mllib.linalg.Vector)] =
             extractedData.map(
-                  record => appendLRPrediction(
+                  record => appendLRPredictionToUnlabeledRecord(
                                 record,
                                 lrModel))
 
@@ -194,7 +194,7 @@ object App {
       // boosted trees model
       val gbtResultRDD: RDD[(String, Double)] =
             lrProcessedData.map(
-                point => calculatePrediction(
+                point => calculatePredictionForUnlabeledRecord(
                               point,
                               gbtModel))
 
