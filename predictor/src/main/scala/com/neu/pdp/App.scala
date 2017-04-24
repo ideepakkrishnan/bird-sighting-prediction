@@ -24,8 +24,7 @@ object App {
     */
   def convertToTuple(
          line: String,
-         columnIndexes: mutable.HashSet[Int],
-         speciesColumn: Int) = {
+         columnIndexes: mutable.HashSet[Int]) = {
 
     val elements: Array[String] = line.split(",")
 
@@ -133,7 +132,7 @@ object App {
     * @param args Runtime arguments
     */
   def main(args: Array[String]) {
-    if (args.length != 5) {
+    if (args.length != 4) {
       println(
           "Invalid number of arguments. The expected arguments " +
           "are: Logistic Regression model path, gradient boosted " +
@@ -151,7 +150,6 @@ object App {
       val gbtModelPath = args(1)
       val inputPath = args(2)
       val outputPath = args(3)
-      val speciesColumn = args(4).toInt
 
       val inputRDD: RDD[String] = sc.textFile(inputPath)
 
@@ -177,7 +175,7 @@ object App {
 
       // RDD storing extracted features as LabeledPoint-s
       val extractedData: RDD[(String, org.apache.spark.mllib.linalg.Vector)] = inputRDD
-            .map(line => convertToTuple(line, hsColumns, speciesColumn))
+            .map(line => convertToTuple(line, hsColumns))
             .filter(x => x != null).persist()
 
       // Perform the prediction for each record using the
@@ -199,6 +197,7 @@ object App {
                               gbtModel))
 
       gbtResultRDD.map(line => {line._1 + "," + line._2})
+                  .coalesce(1)
                   .saveAsTextFile(outputPath)
     }
   }

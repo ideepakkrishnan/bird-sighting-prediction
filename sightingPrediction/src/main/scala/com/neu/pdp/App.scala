@@ -106,23 +106,6 @@ object App {
   }
 
   /**
-    * Calculates the average for a list of double
-    * values
-    * @param values A list of Double-s
-    * @return Calculated average
-    */
-  def findAverage(values: List[Double]) : Double = {
-    var sum : Double = 0.0
-
-    if (values.nonEmpty) {
-      values.foreach(value => { sum += value })
-      return sum / values.size
-    }
-
-    sum
-  }
-
-  /**
     * Predicts the outcome for the record passed
     * in as argument and appends it to the features
     * of it's LabeledPoint
