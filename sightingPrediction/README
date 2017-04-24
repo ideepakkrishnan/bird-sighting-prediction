@@ -1,0 +1,38 @@
+-----------------------------------------------
+CS 6240 - Parallel Data Processing
+Project: Bird Sighting Predictor - Model Training
+Authors: Deepak Krishnan, Mohamed Rizwan
+-----------------------------------------------
+Execution Instructions
+-----------------------------------------------
+
+-------------
+Local Machine
+------------- 
+(Pre-requisites: 
+   - You have configured hadoop in your machine
+   - You must have a HDFS file system running in your machine)
+
+1. Update the input and output directories inside the Makefile
+2. Execute the page rank program using following commands (without the quotes):
+   - make alone
+
+-----
+ AWS
+-----
+1. Open AWS S3 web UI and create a bucket with the following folder structure:
+   - your-bucket-name/input
+   - your-bucket-name/logs
+2. Upload the local input directory inside the Makefile to point to the directory where the input files are stored in your local system.
+3. Update your bucket name, AWS input and AWS output folder paths in the MakeFile for this project
+4. Assuming that you have configured AWS CLI in your machine, use the following command to execute your program in AWS:
+   - make cloud
+5. After successfull termination of your EMR instance, you may copy the generated output to your local machine using:
+   - mkdir output
+   - aws s3 sync s3://your-bucket-name/<output folder name> output
+   - mkdir logs
+   - aws s3 sync s3://your-bucket-name/logs logs
+6. To delete your files from S3, use the following command:
+   - aws s3 rm s3://your-bucket-name/<output-folder-name>/ --recursive
+   - aws s3 rm s3://your-bucket-name/input/ --recursive
+   - aws s3 rm s3://your-bucket-name/logs/ --recursive
